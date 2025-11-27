@@ -18,17 +18,37 @@ enum DataSeeder {
         let gymB = Gym(name: "Gym B", defaultUnit: .lb)
 
         let catalog: [Exercise] = [
+            // Chest
             Exercise(name: "Bench Press", group: .chest),
+            Exercise(name: "Incline Dumbbell Press", group: .chest),
+            Exercise(name: "Dumbbell Press", group: .chest),
+            Exercise(name: "Cable Fly", group: .chest),
+            Exercise(name: "Dips", group: .chest),
+            // Back
             Exercise(name: "Row (Barbell)", group: .back),
-            Exercise(name: "Overhead Press", group: .shoulders),
             Exercise(name: "Lat Pulldown", group: .back),
+            Exercise(name: "Cable Row", group: .back),
+            Exercise(name: "Face Pull", group: .back),
+            Exercise(name: "Shrugs", group: .back),
+            // Shoulders
+            Exercise(name: "Overhead Press", group: .shoulders),
+            Exercise(name: "Lateral Raise", group: .shoulders),
+            Exercise(name: "Rear Delt Fly", group: .shoulders),
+            // Biceps
             Exercise(name: "Dumbbell Curl", group: .biceps),
+            Exercise(name: "Hammer Curl", group: .biceps),
+            // Triceps
             Exercise(name: "Triceps Pushdown", group: .triceps),
+            Exercise(name: "Skull Crushers", group: .triceps),
+            // Legs
             Exercise(name: "Back Squat", group: .quads),
-            Exercise(name: "Romanian Deadlift", group: .hamstrings),
             Exercise(name: "Leg Press", group: .quads),
+            Exercise(name: "Romanian Deadlift", group: .hamstrings),
             Exercise(name: "Leg Curl", group: .hamstrings),
-            Exercise(name: "Calf Raise", group: .calves)
+            Exercise(name: "Calf Raise", group: .calves),
+            // Core
+            Exercise(name: "Plank", group: .core),
+            Exercise(name: "Cable Crunch", group: .core)
         ]
 
         let cal1 = Calibration(gym: gymA, baseExerciseName: "Leg Press", alias: "Prensa A (Trineo 35kg)", a: 1.0, b: 35.0, machineUnit: .kg)

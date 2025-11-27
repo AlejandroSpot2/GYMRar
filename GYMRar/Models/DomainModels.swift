@@ -12,6 +12,57 @@ enum WeightUnit: String, Codable, CaseIterable, Identifiable {
 enum MuscleGroup: String, Codable, CaseIterable, Identifiable {
     case chest, back, shoulders, biceps, triceps, quads, hamstrings, glutes, calves, core, other
     var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .chest: return "Chest"
+        case .back: return "Back"
+        case .shoulders: return "Shoulders"
+        case .biceps: return "Biceps"
+        case .triceps: return "Triceps"
+        case .quads: return "Quads"
+        case .hamstrings: return "Hamstrings"
+        case .glutes: return "Glutes"
+        case .calves: return "Calves"
+        case .core: return "Core"
+        case .other: return "Other"
+        }
+    }
+
+    /// Ordenado de arriba a abajo del cuerpo para UI
+    static var sortOrder: [MuscleGroup] {
+        [.chest, .back, .shoulders, .biceps, .triceps, .quads, .hamstrings, .glutes, .calves, .core, .other]
+    }
+}
+
+enum SplitType: String, Codable, CaseIterable, Identifiable {
+    case upperLower = "Upper/Lower"
+    case pushPullLegs = "Push/Pull/Legs"
+    case fullBody = "Full Body"
+    case broSplit = "Bro Split"
+    case custom = "Custom"
+
+    var id: String { rawValue }
+
+    var defaultDayLabels: [String] {
+        switch self {
+        case .upperLower: return ["Upper", "Lower"]
+        case .pushPullLegs: return ["Push", "Pull", "Legs"]
+        case .fullBody: return ["Day A", "Day B", "Day C"]
+        case .broSplit: return ["Chest", "Back", "Shoulders", "Arms", "Legs"]
+        case .custom: return []
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .upperLower: return "4-6 days/week, alternating upper and lower body"
+        case .pushPullLegs: return "3-6 days/week, push/pull/legs rotation"
+        case .fullBody: return "3-4 days/week, full body each session"
+        case .broSplit: return "5 days/week, one muscle group per day"
+        case .custom: return "Create your own structure"
+        }
+    }
 }
 
 // MARK: - Modelos SwiftData

@@ -228,3 +228,5 @@ This project is created by Alejandro Gonzalez. All rights reserved.
 
 **Note**: AI features require iOS 26.0 or later and are powered by Apple's Foundation Models framework. The app gracefully degrades functionality on older iOS versions while maintaining core workout tracking capabilities.
 
+Link to the repo!
+https://github.com/AlejandroSpot2/GYMRar

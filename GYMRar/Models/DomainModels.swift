@@ -99,7 +99,7 @@ final class RoutineDay {
     }
 }
 
-struct SetScheme: Codable, Hashable {
+struct SetScheme: Codable, Hashable, Sendable {
     var sets: Int
     var repMin: Int
     var repMax: Int
@@ -115,13 +115,21 @@ enum ProgressionRule: String, Codable, CaseIterable {
 final class RoutineItem {
     @Attribute(.unique) var id: UUID
     var exerciseName: String
-    var setSchemeData: Data
+    var sets: Int
+    var repMin: Int
+    var repMax: Int
+    var rpeNote: String?
     var progressionRaw: String
     var unitOverride: WeightUnit?
 
     var setScheme: SetScheme {
-        get { (try? JSONDecoder().decode(SetScheme.self, from: setSchemeData)) ?? SetScheme(sets: 3, repMin: 8, repMax: 12, rpeNote: nil) }
-        set { setSchemeData = (try? JSONEncoder().encode(newValue)) ?? Data() }
+        get { SetScheme(sets: sets, repMin: repMin, repMax: repMax, rpeNote: rpeNote) }
+        set {
+            sets = newValue.sets
+            repMin = newValue.repMin
+            repMax = newValue.repMax
+            rpeNote = newValue.rpeNote
+        }
     }
     var progression: ProgressionRule {
         get { ProgressionRule(rawValue: progressionRaw) ?? .doubleProgression }
@@ -132,7 +140,10 @@ final class RoutineItem {
          progression: ProgressionRule = .doubleProgression, unitOverride: WeightUnit? = nil) {
         self.id = id
         self.exerciseName = exerciseName
-        self.setSchemeData = (try! JSONEncoder().encode(setScheme))
+        self.sets = setScheme.sets
+        self.repMin = setScheme.repMin
+        self.repMax = setScheme.repMax
+        self.rpeNote = setScheme.rpeNote
         self.progressionRaw = progression.rawValue
         self.unitOverride = unitOverride
     }

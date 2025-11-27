@@ -25,6 +25,9 @@ struct RoutineBuilderView: View {
 
     @State private var upperItems: [RoutineItem] = []
     @State private var lowerItems: [RoutineItem] = []
+    @State private var isSaving = false
+    @State private var saveError: String?
+    @State private var saveSuccessPulse = false
 
     // IA Apple
     @StateObject private var aiServiceHolder = AIHolder()
@@ -64,14 +67,16 @@ struct RoutineBuilderView: View {
                 }
 
                 Section {
-                    Button("Save Routine") {
-                        let r = Routine(name: name, gym: selectedGym, days: [
-                            RoutineDay(label: "Upper", items: upperItems),
-                            RoutineDay(label: "Lower", items: lowerItems)
-                        ])
-                        ctx.insert(r); try? ctx.save(); dismiss()
+                    Button {
+                        saveRoutine()
+                    } label: {
+                        if isSaving {
+                            Label("Saving…", systemImage: "hourglass")
+                        } else {
+                            Label("Save Routine", systemImage: "tray.and.arrow.down")
+                        }
                     }
-                    .disabled(upperItems.isEmpty || lowerItems.isEmpty)
+                    .disabled(isSaving || upperItems.isEmpty || lowerItems.isEmpty)
                 }
             }
             .navigationTitle("Routine Builder")
@@ -83,7 +88,16 @@ struct RoutineBuilderView: View {
                     }
                 }
             }
+            .alert("No se pudo guardar", isPresented: Binding(
+                get: { saveError != nil },
+                set: { if !$0 { saveError = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(saveError ?? "")
+            }
         }
+        .sensoryFeedback(.success, trigger: saveSuccessPulse)
     }
 
     @ViewBuilder
@@ -109,6 +123,29 @@ struct RoutineBuilderView: View {
                     }
                 }
             }
+        }
+    }
+
+    // MARK: - Save
+
+    private func saveRoutine() {
+        guard !isSaving else { return }
+        isSaving = true
+
+        let routine = Routine(name: name, gym: selectedGym, days: [
+            RoutineDay(label: "Upper", items: upperItems),
+            RoutineDay(label: "Lower", items: lowerItems)
+        ])
+        ctx.insert(routine)
+
+        do {
+            try ctx.save()
+            saveSuccessPulse.toggle()
+            dismiss()
+        } catch {
+            ctx.delete(routine)
+            saveError = error.localizedDescription
+            isSaving = false
         }
     }
 

@@ -27,7 +27,14 @@ struct GYMRarApp: App {
         let storeURL = supportURL.appendingPathComponent("default.store")
 
         let config = ModelConfiguration(url: storeURL)
-        return try! ModelContainer(for: schema, configurations: [config])
+
+        // Intentamos abrir; si la migración falla, reseteamos el store y reintentamos.
+        do {
+            return try ModelContainer(for: schema, configurations: [config])
+        } catch {
+            try? fm.removeItem(at: storeURL)
+            return try! ModelContainer(for: schema, configurations: [config])
+        }
     }
 
     var sharedModelContainer: ModelContainer = makeContainer()

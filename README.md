@@ -1,6 +1,6 @@
 # GYMRar 🏋️
 
-A modern iOS workout tracking application with AI-powered routine generation, built with SwiftUI and SwiftData.
+A modern iOS workout tracking application with AI-powered routine generation, built with SwiftUI and SwiftData. Features a bold **Neobrutalism** design with vibrant colors, hard shadows, and thick borders.
 
 ## Features
 
@@ -53,6 +53,7 @@ Leveraging Apple's Foundation Models framework:
 - **UI Framework**: SwiftUI
 - **Data Persistence**: SwiftData (iOS 17+)
 - **AI Integration**: FoundationModels (iOS 26+)
+- **Design System**: Custom Neobrutalism components
 - **Minimum iOS Version**: iOS 17.0
 
 ## Project Structure
@@ -62,6 +63,18 @@ GYMRar/
 ├── AI/
 │   ├── FoundationAIService.swift      # AI service with streaming support
 │   └── InventoryTool.swift            # Tool for AI to access exercise catalog
+├── DesignSystem/
+│   ├── NeoColors.swift                # Color palette with light/dark mode
+│   ├── NeoTypography.swift            # Font scale (bold weights)
+│   ├── NeoModifiers.swift             # View modifiers (.neoBorder, .neoShadow)
+│   └── Components/
+│       ├── NeoButton.swift            # Buttons with offset press animation
+│       ├── NeoCard.swift              # Cards with border + shadow
+│       ├── NeoTextField.swift         # Styled text inputs
+│       ├── NeoPicker.swift            # Menu & segmented pickers
+│       ├── NeoStepper.swift           # Custom +/- steppers
+│       ├── NeoSection.swift           # Colored header sections
+│       └── NeoListRow.swift           # Styled list rows
 ├── Models/
 │   ├── DomainModels.swift             # Core data models (SwiftData)
 │   ├── RoutineEngine.swift            # Template generators & progression logic
@@ -218,11 +231,42 @@ Contributions are welcome! Please follow these guidelines:
 
 This project is created by Alejandro Gonzalez. All rights reserved.
 
+## Design System
+
+GYMRar uses a custom **Neobrutalism** design system featuring:
+
+### Visual Characteristics
+- **Bold borders**: 2pt solid black (light mode) / white (dark mode)
+- **Hard shadows**: 4pt offset shadows for depth
+- **Vibrant colors**: Yellow, pink, teal, coral, orange, blue palette
+- **Bold typography**: Heavy font weights with uppercase labels
+- **Square corners**: No border radius for that brutalist aesthetic
+
+### Color Palette
+| Color | Hex | Usage |
+|-------|-----|-------|
+| Primary | `#FFD93D` | Main actions, Today tab |
+| Secondary | `#FF6B9D` | Routines tab |
+| Accent | `#4ECDC4` | Success states, Gyms tab |
+| Danger | `#FF6B6B` | Destructive actions |
+| Warning | `#FFA94D` | Settings tab |
+| Info | `#74B9FF` | History tab |
+
+### Components
+- `NeoButton` - Filled/outline variants with offset press animation
+- `NeoCard` - Container with border + shadow
+- `NeoTextField` - Styled text input with icon support
+- `NeoPicker` - Menu and segmented picker variants
+- `NeoStepper` - Custom +/- stepper controls
+- `NeoSection` - Colored header bar sections
+- `NeoListRow` - Styled list rows with swipe support
+
 ## Acknowledgments
 
 - Built with Apple's latest frameworks: SwiftUI, SwiftData, and FoundationModels
 - Inspired by evidence-based training principles
 - Designed for serious lifters who value data-driven progress
+- UI inspired by the Neobrutalism design trend
 
 ---
 

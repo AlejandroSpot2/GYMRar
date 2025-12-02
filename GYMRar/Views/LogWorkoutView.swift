@@ -5,11 +5,11 @@
 //  Created by Alejandro Gonzalez on 10/11/25.
 //
 
-
 import SwiftUI
 import SwiftData
 
 struct LogWorkoutView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var ctx
     @Query(sort: \Calibration.alias) private var calibrations: [Calibration]
     @Query private var gyms: [Gym]
@@ -29,59 +29,80 @@ struct LogWorkoutView: View {
     }
 
     var body: some View {
-        Form {
-            Section("Gym") {
-                Picker("Gym", selection: $draft.gym) {
-                    Text("None").tag(Gym?.none)
-                    ForEach(gyms) { gym in
-                        Text(gym.name).tag(Gym?.some(gym))
+        ScrollView {
+            VStack(spacing: 16) {
+                // Gym picker
+                NeoSection("Gym", color: NeoColors.accent) {
+                    NeoPicker(selection: $draft.gym) {
+                        Text("None").tag(Gym?.none)
+                        ForEach(gyms) { gym in
+                            Text(gym.name).tag(Gym?.some(gym))
+                        }
                     }
+                    .padding(16)
                 }
-            }
-            ForEach(groupedExercises, id: \.name) { group in
-                Section(group.name) {
-                    ForEach(group.indices, id: \.self) { idx in
-                        WorkoutSetRow(
-                            set: $draft.entries[idx],
-                            setNumber: group.indices.firstIndex(of: idx)! + 1,
-                            gym: draft.gym,
-                            calibrations: calibrations
-                        )
-                    }
-                    .onDelete { offsets in
-                        let indicesToRemove = offsets.map { group.indices[$0] }
-                        draft.entries.remove(atOffsets: IndexSet(indicesToRemove))
-                    }
 
-                    Button {
-                        addSetForExercise(group.name)
-                    } label: {
-                        Label("Add set", systemImage: "plus")
+                // Exercise groups
+                ForEach(groupedExercises, id: \.name) { group in
+                    NeoSection(group.name, color: NeoColors.primary) {
+                        VStack(spacing: 0) {
+                            ForEach(group.indices, id: \.self) { idx in
+                                WorkoutSetRow(
+                                    set: $draft.entries[idx],
+                                    setNumber: group.indices.firstIndex(of: idx)! + 1,
+                                    gym: draft.gym,
+                                    calibrations: calibrations,
+                                    onDelete: {
+                                        draft.entries.remove(at: idx)
+                                    }
+                                )
+
+                                if idx != group.indices.last {
+                                    NeoSectionDivider()
+                                }
+                            }
+
+                            NeoSectionDivider()
+
+                            Button {
+                                addSetForExercise(group.name)
+                            } label: {
+                                HStack {
+                                    Image(systemName: "plus.circle.fill")
+                                    Text("Add set")
+                                }
+                                .font(NeoFont.bodyLarge)
+                                .foregroundStyle(NeoColors.primary)
+                                .frame(maxWidth: .infinity)
+                                .padding(12)
+                            }
+                        }
                     }
                 }
-            }
 
-            Section {
-                Button { showExercisePicker = true } label: {
-                    Label("Add exercise", systemImage: "plus")
+                // Add exercise button
+                NeoButton("Add Exercise", icon: "plus", variant: .outline, fullWidth: true) {
+                    showExercisePicker = true
                 }
-            }
-            Section {
-                Button {
+
+                // Save button
+                NeoButton(
+                    isSaving ? "Saving..." : "Save Workout",
+                    icon: isSaving ? "hourglass" : "tray.and.arrow.down",
+                    size: .large,
+                    color: NeoColors.success,
+                    fullWidth: true
+                ) {
                     saveWorkout()
-                } label: {
-                    if isSaving {
-                        Label("Saving…", systemImage: "hourglass")
-                    } else {
-                        Label("Save Workout", systemImage: "tray.and.arrow.down")
-                    }
                 }
                 .disabled(draft.entries.isEmpty || isSaving || isSaved)
             }
+            .padding()
         }
+        .neoBackground()
+        .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Log Workout")
         .navigationBarTitleDisplayMode(.inline)
-        .scrollDismissesKeyboard(.interactively) // mitiga warnings de teclado
         .onAppear { if draft.entries.isEmpty { seedAllExercises() } }
         .alert("No se pudo guardar", isPresented: Binding(
             get: { saveError != nil },
@@ -96,10 +117,13 @@ struct LogWorkoutView: View {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill")
                     Text("Workout guardado")
+                        .font(NeoFont.bodyLarge)
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(.thinMaterial, in: Capsule())
+                .foregroundStyle(NeoColors.text(for: .light))
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(NeoColors.success)
+                .neoBorder(width: 2)
                 .padding(.top, 12)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -146,7 +170,6 @@ struct LogWorkoutView: View {
     }
 
     private func addSetForExercise(_ exerciseName: String) {
-        // Find an existing set for this exercise to copy defaults from
         let existing = draft.entries.first(where: { $0.exerciseName == exerciseName })
         let unit = existing?.weightUnit ?? draft.gym?.defaultUnit ?? .kg
         let weight = existing?.weightValue ?? 20
@@ -167,7 +190,7 @@ struct LogWorkoutView: View {
 
     private var groupedExercises: [(name: String, indices: [Int])] {
         var groups: [(name: String, indices: [Int])] = []
-        var seen: [String: Int] = [:] // exerciseName -> index in groups
+        var seen: [String: Int] = [:]
 
         for (index, entry) in draft.entries.enumerated() {
             if let groupIndex = seen[entry.exerciseName] {
@@ -248,24 +271,56 @@ private extension LogWorkoutView {
     }
 }
 
+// MARK: - Workout Set Row
+
 private struct WorkoutSetRow: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var set: WorkoutSetDraft
     var setNumber: Int
     var gym: Gym?
     var calibrations: [Calibration]
+    var onDelete: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Set \(setNumber)").font(.subheadline).foregroundStyle(.secondary)
-
-            Stepper("Reps: \(set.reps)", value: $set.reps, in: 1...50)
-
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
-                TextField("Weight", value: $set.weightValue, format: .number.precision(.fractionLength(1)))
-                    .keyboardType(.decimalPad)
-                Picker("", selection: Binding(get: { set.weightUnit }, set: { set.weightUnit = $0 })) {
-                    ForEach(WeightUnit.allCases) { u in Text(u.symbol).tag(u) }
-                }.pickerStyle(.segmented)
+                Text("SET \(setNumber)")
+                    .font(NeoFont.labelMedium)
+                    .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.6))
+                Spacer()
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(NeoColors.danger)
+                }
+            }
+
+            NeoStepper("Reps", value: $set.reps, in: 1...50)
+
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("WEIGHT")
+                        .font(NeoFont.labelSmall)
+                        .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.6))
+                    TextField("Weight", value: $set.weightValue, format: .number.precision(.fractionLength(1)))
+                        .font(NeoFont.numeric)
+                        .keyboardType(.decimalPad)
+                        .padding(10)
+                        .background(NeoColors.surface(for: colorScheme))
+                        .neoBorder(width: 2)
+                        .foregroundStyle(NeoColors.text(for: colorScheme))
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("UNIT")
+                        .font(NeoFont.labelSmall)
+                        .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.6))
+                    NeoSegmentedPicker(selection: $set.weightUnit) {
+                        ForEach(WeightUnit.allCases) { u in
+                            Text(u.symbol).tag(u)
+                        }
+                    }
+                }
             }
 
             let gymCal = calibrations.filter {
@@ -273,7 +328,7 @@ private struct WorkoutSetRow: View {
             }
 
             if !gymCal.isEmpty {
-                Picker("Machine", selection: Binding<String?>(
+                NeoPicker("Machine", selection: Binding<String?>(
                     get: { set.calibrationAlias },
                     set: { set.calibrationAlias = $0 }
                 )) {
@@ -281,7 +336,7 @@ private struct WorkoutSetRow: View {
                     ForEach(gymCal, id: \.id) { c in
                         Text(c.alias).tag(String?.some(c.alias))
                     }
-                }.pickerStyle(.menu)
+                }
 
                 if let alias = set.calibrationAlias,
                    let cal = gymCal.first(where: { $0.alias == alias }) {
@@ -292,10 +347,33 @@ private struct WorkoutSetRow: View {
                         outputUnit: .kg
                     )
                     let display = set.weightUnit == .kg ? realKg : UnitConv.convert(realKg, from: .kg, to: .lb)
-                    Text("Real ≈ \(display, specifier: "%.1f") \(set.weightUnit.symbol)")
-                        .font(.caption).foregroundStyle(.secondary)
+
+                    HStack {
+                        Image(systemName: "arrow.right.circle.fill")
+                        Text("Real ≈ \(display, specifier: "%.1f") \(set.weightUnit.symbol)")
+                    }
+                    .font(NeoFont.labelMedium)
+                    .foregroundStyle(NeoColors.info)
                 }
             }
         }
+        .padding(12)
+        .foregroundStyle(NeoColors.text(for: colorScheme))
     }
+}
+
+#Preview("Log Workout - Light") {
+    NavigationStack {
+        LogWorkoutView(routine: nil)
+    }
+    .modelContainer(for: [Workout.self, Gym.self, Calibration.self, Exercise.self])
+    .preferredColorScheme(.light)
+}
+
+#Preview("Log Workout - Dark") {
+    NavigationStack {
+        LogWorkoutView(routine: nil)
+    }
+    .modelContainer(for: [Workout.self, Gym.self, Calibration.self, Exercise.self])
+    .preferredColorScheme(.dark)
 }

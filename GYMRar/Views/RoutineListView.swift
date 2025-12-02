@@ -9,6 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct RoutineListView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var ctx
     @Query(sort: \Routine.name) private var routines: [Routine]
 
@@ -19,19 +20,26 @@ struct RoutineListView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
-                if routines.isEmpty {
-                    emptyStateView
-                } else {
-                    routinesList
+            ScrollView {
+                VStack(spacing: 16) {
+                    if routines.isEmpty {
+                        emptyStateView
+                    } else {
+                        routinesList
+                    }
                 }
+                .padding()
             }
+            .neoBackground()
             .navigationTitle("Routines")
             .toolbar {
-                Button {
-                    showNewRoutineOptions = true
-                } label: {
-                    Image(systemName: "plus")
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showNewRoutineOptions = true
+                    } label: {
+                        Image(systemName: "plus")
+                            .font(.system(size: 16, weight: .bold))
+                    }
                 }
             }
             .confirmationDialog("New Routine", isPresented: $showNewRoutineOptions, titleVisibility: .visible) {
@@ -60,36 +68,57 @@ struct RoutineListView: View {
     }
 
     private var emptyStateView: some View {
-        ContentUnavailableView {
-            Label("No Routines", systemImage: "dumbbell")
-        } description: {
-            Text("Create your first routine to get started")
-        } actions: {
-            Button("Create Routine") {
-                showNewRoutineOptions = true
+        NeoCard(color: NeoColors.surface(for: colorScheme)) {
+            VStack(spacing: 16) {
+                Image(systemName: "dumbbell")
+                    .font(.system(size: 50))
+                    .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.4))
+
+                Text("No Routines")
+                    .font(NeoFont.headlineLarge)
+                    .foregroundStyle(NeoColors.text(for: colorScheme))
+
+                Text("Create your first routine to get started")
+                    .font(NeoFont.bodyMedium)
+                    .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+                NeoButton("Create Routine", icon: "plus", color: NeoColors.secondary) {
+                    showNewRoutineOptions = true
+                }
             }
-            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 32)
         }
     }
 
     private var routinesList: some View {
-        List {
+        VStack(spacing: 12) {
             ForEach(routines, id: \.id) { routine in
                 NavigationLink {
                     RoutineDetailView(routine: routine, container: ctx.container)
                 } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(routine.name)
-                            .font(.headline)
-                        Text("\(routine.days.count) days • \(routine.days.flatMap { $0.items }.count) exercises")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    NeoCard(color: NeoColors.surface(for: colorScheme)) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(routine.name)
+                                    .font(NeoFont.headlineMedium)
+                                HStack(spacing: 8) {
+                                    Label("\(routine.days.count) days", systemImage: "calendar")
+                                    Label("\(routine.days.flatMap { $0.items }.count) exercises", systemImage: "figure.strengthtraining.traditional")
+                                }
+                                .font(NeoFont.labelSmall)
+                                .foregroundStyle(NeoColors.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 14, weight: .bold))
+                                .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.4))
+                        }
+                        .foregroundStyle(NeoColors.text(for: colorScheme))
                     }
                 }
-            }
-            .onDelete { idx in
-                idx.map { routines[$0] }.forEach { ctx.delete($0) }
-                try? ctx.save()
+                .buttonStyle(.plain)
             }
         }
     }
@@ -98,38 +127,59 @@ struct RoutineListView: View {
 // MARK: - Template Selector
 
 struct TemplateSelectorView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     let onSelect: (SplitType) -> Void
 
+    private let templateColors: [SplitType: Color] = [
+        .upperLower: NeoColors.primary,
+        .pushPullLegs: NeoColors.secondary,
+        .fullBody: NeoColors.accent,
+        .broSplit: NeoColors.info
+    ]
+
     var body: some View {
         NavigationStack {
-            List {
-                Section {
+            ScrollView {
+                VStack(spacing: 12) {
+                    Text("Choose a template")
+                        .font(NeoFont.labelMedium)
+                        .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.6))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
                     ForEach(SplitType.allCases.filter { $0 != .custom }) { split in
                         Button {
                             onSelect(split)
                             dismiss()
                         } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(split.rawValue)
-                                    .font(.headline)
-                                    .foregroundStyle(.primary)
-                                Text(split.description)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Text("Days: \(split.defaultDayLabels.joined(separator: ", "))")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
+                            NeoCard(color: templateColors[split] ?? NeoColors.primary) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(split.rawValue)
+                                        .font(NeoFont.headlineMedium)
+                                    Text(split.description)
+                                        .font(NeoFont.bodySmall)
+                                        .opacity(0.8)
+                                    HStack {
+                                        Image(systemName: "calendar")
+                                        Text(split.defaultDayLabels.joined(separator: " • "))
+                                            .font(NeoFont.labelSmall)
+                                    }
+                                    .opacity(0.7)
+                                }
+                                .foregroundStyle(NeoColors.text(for: .light))
                             }
-                            .padding(.vertical, 4)
                         }
+                        .buttonStyle(.plain)
                     }
-                } header: {
-                    Text("Choose a template")
-                } footer: {
+
                     Text("Templates provide a starting point. You can customize the routine after creation.")
+                        .font(NeoFont.bodySmall)
+                        .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.5))
+                        .padding(.top, 8)
                 }
+                .padding()
             }
+            .neoBackground()
             .navigationTitle("Templates")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -144,42 +194,96 @@ struct TemplateSelectorView: View {
 // MARK: - Routine Detail View
 
 private struct RoutineDetailView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Bindable var routine: Routine
     let container: ModelContainer
     @State private var showEditor = false
 
     var body: some View {
-        List {
-            Section("Overview") {
-                LabeledContent("Days", value: "\(routine.days.count)")
-                LabeledContent("Exercises", value: "\(routine.days.flatMap { $0.items }.count)")
-                if let gym = routine.gym {
-                    LabeledContent("Gym", value: gym.name)
-                }
-            }
+        ScrollView {
+            VStack(spacing: 16) {
+                // Overview section
+                NeoSection("Overview", color: NeoColors.secondary) {
+                    VStack(spacing: 0) {
+                        HStack {
+                            Text("Days")
+                                .font(NeoFont.bodyLarge)
+                            Spacer()
+                            Text("\(routine.days.count)")
+                                .font(NeoFont.numericSmall)
+                        }
+                        .padding(12)
+                        .foregroundStyle(NeoColors.text(for: colorScheme))
 
-            ForEach(routine.days) { day in
-                Section(day.label) {
-                    if day.items.isEmpty {
-                        Text("No exercises")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(day.items) { item in
+                        NeoSectionDivider()
+
+                        HStack {
+                            Text("Exercises")
+                                .font(NeoFont.bodyLarge)
+                            Spacer()
+                            Text("\(routine.days.flatMap { $0.items }.count)")
+                                .font(NeoFont.numericSmall)
+                        }
+                        .padding(12)
+                        .foregroundStyle(NeoColors.text(for: colorScheme))
+
+                        if let gym = routine.gym {
+                            NeoSectionDivider()
                             HStack {
-                                Text(item.exerciseName)
+                                Text("Gym")
+                                    .font(NeoFont.bodyLarge)
                                 Spacer()
-                                Text("\(item.setScheme.sets)x\(item.setScheme.repMin)-\(item.setScheme.repMax)")
-                                    .foregroundStyle(.secondary)
+                                Text(gym.name)
+                                    .font(NeoFont.bodyMedium)
+                                    .foregroundStyle(NeoColors.accent)
+                            }
+                            .padding(12)
+                            .foregroundStyle(NeoColors.text(for: colorScheme))
+                        }
+                    }
+                }
+
+                // Days sections
+                ForEach(routine.days) { day in
+                    NeoSection(day.label, color: NeoColors.primary) {
+                        VStack(spacing: 0) {
+                            if day.items.isEmpty {
+                                Text("No exercises")
+                                    .font(NeoFont.bodyMedium)
+                                    .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.6))
+                                    .frame(maxWidth: .infinity)
+                                    .padding(12)
+                            } else {
+                                ForEach(day.items) { item in
+                                    HStack {
+                                        Text(item.exerciseName)
+                                            .font(NeoFont.bodyLarge)
+                                        Spacer()
+                                        Text("\(item.setScheme.sets)x\(item.setScheme.repMin)-\(item.setScheme.repMax)")
+                                            .font(NeoFont.numericSmall)
+                                            .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.7))
+                                    }
+                                    .padding(12)
+                                    .foregroundStyle(NeoColors.text(for: colorScheme))
+
+                                    if item.id != day.items.last?.id {
+                                        NeoSectionDivider()
+                                    }
+                                }
                             }
                         }
                     }
                 }
             }
+            .padding()
         }
+        .neoBackground()
         .navigationTitle(routine.name)
         .toolbar {
-            Button("Edit") {
-                showEditor = true
+            ToolbarItem(placement: .primaryAction) {
+                Button("Edit") {
+                    showEditor = true
+                }
             }
         }
         .sheet(isPresented: $showEditor) {
@@ -188,3 +292,14 @@ private struct RoutineDetailView: View {
     }
 }
 
+#Preview("Routine List - Light") {
+    RoutineListView()
+        .modelContainer(for: [Routine.self, Gym.self])
+        .preferredColorScheme(.light)
+}
+
+#Preview("Routine List - Dark") {
+    RoutineListView()
+        .modelContainer(for: [Routine.self, Gym.self])
+        .preferredColorScheme(.dark)
+}

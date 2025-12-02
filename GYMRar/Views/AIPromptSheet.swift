@@ -13,6 +13,7 @@ import FoundationModels
 
 @available(iOS 26, *)
 struct AIPromptSheet: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @ObservedObject var aiService: FoundationAIService
 
@@ -51,6 +52,7 @@ struct AIPromptSheet: View {
                 }
                 .padding()
             }
+            .neoBackground()
             .navigationTitle("AI Assistant")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -74,41 +76,41 @@ struct AIPromptSheet: View {
     // MARK: - Prompt Input Section
 
     private var promptSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("What would you like?")
-                .font(.headline)
+        NeoSection("What would you like?", color: NeoColors.info) {
+            VStack(alignment: .leading, spacing: 12) {
+                if !currentRoutine.isEmpty {
+                    HStack {
+                        Image(systemName: "doc.text")
+                        Text("Current: \(currentRoutine.name) (\(currentRoutine.days.count) days)")
+                    }
+                    .font(NeoFont.labelSmall)
+                    .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.6))
+                }
 
-            if !currentRoutine.isEmpty {
-                Text("Current routine: \(currentRoutine.name) (\(currentRoutine.days.count) days)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
+                NeoTextEditor("Describe your ideal routine or changes...", text: $userPrompt, minHeight: 80)
+                    .focused($isPromptFocused)
 
-            TextField("Describe your ideal routine or changes...", text: $userPrompt, axis: .vertical)
-                .textFieldStyle(.plain)
-                .padding(12)
-                .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
-                .lineLimit(3...6)
-                .focused($isPromptFocused)
-
-            Button {
-                Task { await generate() }
-            } label: {
-                HStack {
+                NeoButton(
+                    aiService.isGenerating ? "Generating..." : "Generate",
+                    icon: aiService.isGenerating ? nil : "sparkles",
+                    size: .large,
+                    color: NeoColors.info,
+                    fullWidth: true
+                ) {
+                    Task { await generate() }
+                }
+                .disabled(userPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || aiService.isGenerating)
+                .overlay {
                     if aiService.isGenerating {
-                        ProgressView()
-                            .scaleEffect(0.8)
-                        Text("Generating...")
-                    } else {
-                        Image(systemName: "sparkles")
-                        Text("Generate")
+                        HStack {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .tint(NeoColors.text(for: .light))
+                        }
                     }
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(userPrompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || aiService.isGenerating)
+            .padding(16)
         }
     }
 
@@ -116,9 +118,9 @@ struct AIPromptSheet: View {
 
     private var examplesSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Examples")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Text("EXAMPLES")
+                .font(NeoFont.labelSmall)
+                .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.6))
 
             FlowLayout(spacing: 8) {
                 ForEach(examplePrompts, id: \.self) { example in
@@ -127,12 +129,13 @@ struct AIPromptSheet: View {
                         isPromptFocused = false
                     } label: {
                         Text(example)
-                            .font(.caption)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .font(NeoFont.labelSmall)
+                            .foregroundStyle(NeoColors.text(for: colorScheme))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(NeoColors.surface(for: colorScheme))
+                            .neoBorder(width: 2)
                     }
-                    .buttonStyle(.bordered)
-                    .tint(.secondary)
                 }
             }
         }
@@ -141,37 +144,41 @@ struct AIPromptSheet: View {
     // MARK: - Preview Section
 
     private var previewSection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Preview")
-                    .font(.headline)
-                Spacer()
+        NeoSection("Preview", color: NeoColors.success) {
+            VStack(alignment: .leading, spacing: 12) {
                 if aiService.isGenerating {
-                    ProgressView()
-                        .scaleEffect(0.7)
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Generating your routine...")
+                            .font(NeoFont.bodyMedium)
+                    }
+                    .foregroundStyle(NeoColors.text(for: colorScheme))
+                    .frame(maxWidth: .infinity)
+                    .padding(16)
+                }
+
+                if let draft = aiService.liveDraft ?? generatedDraft {
+                    AIPreviewOverlay(draft: draft)
                 }
             }
-
-            if let draft = aiService.liveDraft ?? generatedDraft {
-                AIPreviewOverlay(draft: draft)
-            }
+            .padding(16)
         }
-        .padding()
-        .background(Color(.systemGray6), in: RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Error Section
 
     private func errorSection(_ message: String) -> some View {
-        HStack {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(.orange)
-            Text(message)
-                .font(.caption)
+        NeoCard(color: NeoColors.warning.opacity(0.3)) {
+            HStack(spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.title2)
+                    .foregroundStyle(NeoColors.warning)
+                Text(message)
+                    .font(NeoFont.bodyMedium)
+                    .foregroundStyle(NeoColors.text(for: colorScheme))
+            }
         }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
     }
 
     // MARK: - Actions

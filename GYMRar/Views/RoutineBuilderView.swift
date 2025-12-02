@@ -79,13 +79,13 @@ struct RoutineItemDraft: Identifiable {
 // MARK: - Main View
 
 struct RoutineBuilderView: View {
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.modelContext) private var ctx
     let container: ModelContainer
     @Query(sort: \Exercise.name) private var catalog: [Exercise]
     @Query private var gyms: [Gym]
     @Environment(\.dismiss) private var dismiss
 
-    // Routine being edited (nil for new routine)
     var editingRoutine: Routine?
 
     @State private var name: String = ""
@@ -96,30 +96,31 @@ struct RoutineBuilderView: View {
     @State private var saveError: String?
     @State private var saveSuccessPulse = false
 
-    // Exercise picker sheet state
     @State private var showExercisePicker = false
     @State private var editingDayIndex: Int?
-
-    // Expanded exercise for inline editing
     @State private var expandedItemId: UUID?
 
-    // AI
     @StateObject private var aiServiceHolder = AIHolder()
     @State private var showAIPromptSheet = false
 
     var body: some View {
         NavigationStack {
-            Form {
-                basicsSection
-                daysSection
-                addDaySection
+            ScrollView {
+                VStack(spacing: 16) {
+                    basicsSection
+                    daysSection
+                    addDaySection
 
-                if #available(iOS 26, *) {
-                    aiSection
+                    if #available(iOS 26, *) {
+                        aiSection
+                    }
+
+                    saveSection
                 }
-
-                saveSection
+                .padding()
             }
+            .neoBackground()
+            .scrollDismissesKeyboard(.interactively)
             .navigationTitle(editingRoutine == nil ? "New Routine" : "Edit Routine")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -170,67 +171,77 @@ struct RoutineBuilderView: View {
     // MARK: - Sections
 
     private var basicsSection: some View {
-        Section("Basics") {
-            TextField("Routine name", text: $name)
-            Picker("Gym (optional)", selection: $selectedGym) {
-                Text("None").tag(Gym?.none)
-                ForEach(gyms) { g in Text(g.name).tag(Gym?.some(g)) }
+        NeoSection("Basics", color: NeoColors.secondary) {
+            VStack(spacing: 16) {
+                NeoTextField("Routine name", text: $name)
+
+                NeoPicker("Gym (optional)", selection: $selectedGym) {
+                    Text("None").tag(Gym?.none)
+                    ForEach(gyms) { g in Text(g.name).tag(Gym?.some(g)) }
+                }
             }
+            .padding(16)
         }
     }
 
     private var daysSection: some View {
         ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
-            Section {
-                dayContent(for: index)
-            } header: {
-                dayHeader(for: index)
+            NeoSection(day.label, color: NeoColors.primary) {
+                VStack(spacing: 0) {
+                    dayHeader(for: index)
+                    NeoSectionDivider()
+                    dayContent(for: index)
+                }
             }
         }
     }
 
     private var addDaySection: some View {
-        Section {
-            Button {
-                withAnimation {
-                    days.append(RoutineDayDraft(label: "Day \(days.count + 1)"))
-                }
-            } label: {
-                Label("Add Day", systemImage: "plus.circle")
+        NeoButton("Add Day", icon: "plus.circle", variant: .outline, fullWidth: true) {
+            withAnimation {
+                days.append(RoutineDayDraft(label: "Day \(days.count + 1)"))
             }
         }
     }
 
     @available(iOS 26, *)
     private var aiSection: some View {
-        Section("AI Assistant") {
+        NeoCard(color: NeoColors.info.opacity(0.2)) {
             Button {
                 showAIPromptSheet = true
             } label: {
                 HStack {
-                    Label("Ask AI to help", systemImage: "sparkles")
+                    Image(systemName: "sparkles")
+                        .font(.title2)
+                        .foregroundStyle(NeoColors.info)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("AI ASSISTANT")
+                            .font(NeoFont.labelMedium)
+                        Text("Ask AI to help build your routine")
+                            .font(NeoFont.bodySmall)
+                            .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.7))
+                    }
                     Spacer()
                     Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.4))
                 }
+                .foregroundStyle(NeoColors.text(for: colorScheme))
             }
         }
     }
 
     private var saveSection: some View {
-        Section {
-            Button {
-                saveRoutine()
-            } label: {
-                if isSaving {
-                    Label("Saving...", systemImage: "hourglass")
-                } else {
-                    Label("Save Routine", systemImage: "tray.and.arrow.down")
-                }
-            }
-            .disabled(isSaving || name.isEmpty || days.isEmpty || days.allSatisfy { $0.items.isEmpty })
+        NeoButton(
+            isSaving ? "Saving..." : "Save Routine",
+            icon: isSaving ? "hourglass" : "tray.and.arrow.down",
+            size: .large,
+            color: NeoColors.success,
+            fullWidth: true
+        ) {
+            saveRoutine()
         }
+        .disabled(isSaving || name.isEmpty || days.isEmpty || days.allSatisfy { $0.items.isEmpty })
     }
 
     // MARK: - Day UI Components
@@ -239,40 +250,48 @@ struct RoutineBuilderView: View {
     private func dayHeader(for index: Int) -> some View {
         HStack {
             TextField("Day name", text: $days[index].label)
-                .textFieldStyle(.plain)
-                .font(.headline)
+                .font(NeoFont.bodyLarge)
+                .foregroundStyle(NeoColors.text(for: colorScheme))
             Spacer()
             if days.count > 1 {
-                Button(role: .destructive) {
+                Button {
                     withAnimation {
                         _ = days.remove(at: index)
                     }
                 } label: {
                     Image(systemName: "trash")
-                        .foregroundStyle(.red)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(NeoColors.danger)
                 }
-                .buttonStyle(.borderless)
             }
         }
+        .padding(12)
     }
 
     @ViewBuilder
     private func dayContent(for dayIndex: Int) -> some View {
         ForEach(Array(days[dayIndex].items.enumerated()), id: \.element.id) { itemIndex, item in
             exerciseRow(dayIndex: dayIndex, itemIndex: itemIndex, item: item)
+
+            if itemIndex < days[dayIndex].items.count - 1 {
+                NeoSectionDivider()
+            }
         }
-        .onDelete { offsets in
-            days[dayIndex].items.remove(atOffsets: offsets)
-        }
-        .onMove { from, to in
-            days[dayIndex].items.move(fromOffsets: from, toOffset: to)
-        }
+
+        NeoSectionDivider()
 
         Button {
             editingDayIndex = dayIndex
             showExercisePicker = true
         } label: {
-            Label("Add Exercise", systemImage: "plus")
+            HStack {
+                Image(systemName: "plus.circle.fill")
+                Text("Add Exercise")
+            }
+            .font(NeoFont.bodyLarge)
+            .foregroundStyle(NeoColors.primary)
+            .frame(maxWidth: .infinity)
+            .padding(12)
         }
     }
 
@@ -280,58 +299,64 @@ struct RoutineBuilderView: View {
     private func exerciseRow(dayIndex: Int, itemIndex: Int, item: RoutineItemDraft) -> some View {
         let isExpanded = expandedItemId == item.id
 
-        VStack(alignment: .leading, spacing: 8) {
-            // Main row - tap to expand
-            Button {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    expandedItemId = isExpanded ? nil : item.id
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        expandedItemId = isExpanded ? nil : item.id
+                    }
+                } label: {
+                    HStack {
+                        Text(item.exerciseName)
+                            .font(NeoFont.bodyLarge)
+                            .foregroundStyle(NeoColors.text(for: colorScheme))
+                        Spacer()
+                        Text("\(item.sets)x\(item.repMin)-\(item.repMax)")
+                            .font(NeoFont.numericSmall)
+                            .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.7))
+                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                            .font(.caption)
+                            .foregroundStyle(NeoColors.text(for: colorScheme).opacity(0.5))
+                    }
+                    .contentShape(Rectangle())
                 }
-            } label: {
-                HStack {
-                    Text(item.exerciseName)
-                        .foregroundStyle(.primary)
-                    Spacer()
-                    Text("\(item.sets)x\(item.repMin)-\(item.repMax)")
-                        .foregroundStyle(.secondary)
-                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
+                .buttonStyle(.plain)
 
-            // Expanded inline editor
+                Button {
+                    days[dayIndex].items.remove(at: itemIndex)
+                } label: {
+                    Image(systemName: "trash")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(NeoColors.danger)
+                }
+            }
+
             if isExpanded {
                 VStack(spacing: 12) {
-                    HStack {
-                        Text("Sets")
-                            .frame(width: 60, alignment: .leading)
-                        Stepper("\(days[dayIndex].items[itemIndex].sets)", value: $days[dayIndex].items[itemIndex].sets, in: 1...10)
-                    }
+                    NeoStepper("Sets", value: $days[dayIndex].items[itemIndex].sets, in: 1...10)
 
-                    HStack {
+                    HStack(spacing: 8) {
                         Text("Reps")
-                            .frame(width: 60, alignment: .leading)
-                        Stepper("\(days[dayIndex].items[itemIndex].repMin)", value: $days[dayIndex].items[itemIndex].repMin, in: 1...30)
+                            .font(NeoFont.bodyLarge)
+                            .foregroundStyle(NeoColors.text(for: colorScheme))
+                        Spacer()
+                        NeoCompactStepper(value: $days[dayIndex].items[itemIndex].repMin, in: 1...30)
                         Text("-")
-                        Stepper("\(days[dayIndex].items[itemIndex].repMax)", value: $days[dayIndex].items[itemIndex].repMax, in: 1...30)
+                            .font(NeoFont.bodyLarge)
+                            .foregroundStyle(NeoColors.text(for: colorScheme))
+                        NeoCompactStepper(value: $days[dayIndex].items[itemIndex].repMax, in: 1...30)
                     }
 
-                    HStack {
-                        Text("RPE")
-                            .frame(width: 60, alignment: .leading)
-                        TextField("e.g. RPE 8", text: Binding(
-                            get: { days[dayIndex].items[itemIndex].rpeNote ?? "" },
-                            set: { days[dayIndex].items[itemIndex].rpeNote = $0.isEmpty ? nil : $0 }
-                        ))
-                        .textFieldStyle(.roundedBorder)
-                    }
+                    NeoTextField("RPE note (e.g. RPE 8)", text: Binding(
+                        get: { days[dayIndex].items[itemIndex].rpeNote ?? "" },
+                        set: { days[dayIndex].items[itemIndex].rpeNote = $0.isEmpty ? nil : $0 }
+                    ))
                 }
                 .padding(.top, 4)
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        .padding(12)
     }
 
     // MARK: - Actions
@@ -342,7 +367,6 @@ struct RoutineBuilderView: View {
             selectedGym = routine.gym
             days = routine.days.map { RoutineDayDraft(from: $0) }
         } else if days.isEmpty {
-            // Start with one empty day for custom routines
             days = [RoutineDayDraft(label: "Day 1")]
         }
     }
@@ -362,12 +386,10 @@ struct RoutineBuilderView: View {
         let routineDays = days.map { $0.toRoutineDay() }
 
         if let existing = editingRoutine {
-            // Update existing routine
             existing.name = name
             existing.gym = selectedGym
             existing.days = routineDays
         } else {
-            // Create new routine
             let routine = Routine(name: name, gym: selectedGym, days: routineDays)
             ctx.insert(routine)
         }
@@ -377,10 +399,6 @@ struct RoutineBuilderView: View {
             saveSuccessPulse.toggle()
             dismiss()
         } catch {
-            if editingRoutine == nil {
-                // Rollback insertion if it was a new routine
-                // (existing routine changes will be rolled back automatically)
-            }
             saveError = error.localizedDescription
             isSaving = false
         }
@@ -411,19 +429,16 @@ struct RoutineBuilderView: View {
 // MARK: - Initializers for different entry points
 
 extension RoutineBuilderView {
-    /// Initialize for creating a new custom routine
     init(container: ModelContainer) {
         self.container = container
         self.editingRoutine = nil
     }
 
-    /// Initialize for editing an existing routine
     init(container: ModelContainer, editing routine: Routine) {
         self.container = container
         self.editingRoutine = routine
     }
 
-    /// Initialize with a template pre-applied
     init(container: ModelContainer, template: SplitType, gym: Gym? = nil) {
         self.container = container
         self.editingRoutine = nil
@@ -454,4 +469,14 @@ final class AIHolder: ObservableObject {
             #endif
         }
     }
+}
+
+#Preview("Routine Builder - Light") {
+    RoutineBuilderView(container: try! ModelContainer(for: Routine.self, Exercise.self, Gym.self))
+        .preferredColorScheme(.light)
+}
+
+#Preview("Routine Builder - Dark") {
+    RoutineBuilderView(container: try! ModelContainer(for: Routine.self, Exercise.self, Gym.self))
+        .preferredColorScheme(.dark)
 }

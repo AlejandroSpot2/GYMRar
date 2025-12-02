@@ -12,12 +12,14 @@ import SwiftData
 struct LogWorkoutView: View {
     @Environment(\.modelContext) private var ctx
     @Query(sort: \Calibration.alias) private var calibrations: [Calibration]
+    @Query private var gyms: [Gym]
     @State private var draft: WorkoutDraft
     @State private var isSaving = false
     @State private var saveError: String?
     @State private var isSaved = false
     @State private var showSavedBanner = false
     @State private var saveSuccessPulse = false
+    @State private var showExercisePicker = false
     private let routine: Routine?
     @Environment(\.dismiss) private var dismiss
 
@@ -28,15 +30,40 @@ struct LogWorkoutView: View {
 
     var body: some View {
         Form {
-            Section("Gym") { Text(draft.gym?.name ?? "No gym") }
-            Section("Entries") {
-                ForEach($draft.entries) { $set in
-                    WorkoutSetRow(set: $set, gym: draft.gym, calibrations: calibrations)
+            Section("Gym") {
+                Picker("Gym", selection: $draft.gym) {
+                    Text("None").tag(Gym?.none)
+                    ForEach(gyms) { gym in
+                        Text(gym.name).tag(Gym?.some(gym))
+                    }
                 }
-                .onDelete { idx in draft.entries.remove(atOffsets: idx) }
+            }
+            ForEach(groupedExercises, id: \.name) { group in
+                Section(group.name) {
+                    ForEach(group.indices, id: \.self) { idx in
+                        WorkoutSetRow(
+                            set: $draft.entries[idx],
+                            setNumber: group.indices.firstIndex(of: idx)! + 1,
+                            gym: draft.gym,
+                            calibrations: calibrations
+                        )
+                    }
+                    .onDelete { offsets in
+                        let indicesToRemove = offsets.map { group.indices[$0] }
+                        draft.entries.remove(atOffsets: IndexSet(indicesToRemove))
+                    }
 
-                Button { addNextFromRoutine() } label: {
-                    Label("Add next exercise", systemImage: "plus")
+                    Button {
+                        addSetForExercise(group.name)
+                    } label: {
+                        Label("Add set", systemImage: "plus")
+                    }
+                }
+            }
+
+            Section {
+                Button { showExercisePicker = true } label: {
+                    Label("Add exercise", systemImage: "plus")
                 }
             }
             Section {
@@ -55,7 +82,7 @@ struct LogWorkoutView: View {
         .navigationTitle("Log Workout")
         .navigationBarTitleDisplayMode(.inline)
         .scrollDismissesKeyboard(.interactively) // mitiga warnings de teclado
-        .onAppear { if draft.entries.isEmpty { seedFirstTwo() } }
+        .onAppear { if draft.entries.isEmpty { seedAllExercises() } }
         .alert("No se pudo guardar", isPresented: Binding(
             get: { saveError != nil },
             set: { if !$0 { saveError = nil } }
@@ -78,12 +105,17 @@ struct LogWorkoutView: View {
             }
         }
         .sensoryFeedback(.success, trigger: saveSuccessPulse)
+        .sheet(isPresented: $showExercisePicker) {
+            ExercisePickerView { exercise in
+                addExercise(exercise)
+            }
+        }
     }
 
-    private func seedFirstTwo() {
-        guard let first = routine?.days.first?.items.prefix(2) else { return }
+    private func seedAllExercises() {
+        guard let items = routine?.days.first?.items else { return }
         var order = 1
-        for it in first {
+        for it in items {
             draft.entries.append(.init(
                 exerciseName: it.exerciseName,
                 order: order,
@@ -98,18 +130,54 @@ struct LogWorkoutView: View {
         }
     }
 
-    private func addNextFromRoutine() {
-        guard let plan = routine?.days.first?.items else { return }
-        let used = Set(draft.entries.map { $0.exerciseName })
-        if let next = plan.first(where: { !used.contains($0.exerciseName) }) {
-            let unit = next.unitOverride ?? (draft.gym?.defaultUnit ?? .kg)
-            let order = (draft.entries.map { $0.order }.max() ?? 0) + 1
-            draft.entries.append(.init(
-                exerciseName: next.exerciseName,
-                order: order, reps: next.setScheme.repMin,
-                weightValue: 20, weightUnit: unit, rpe: 7.5, note: nil, calibrationAlias: nil
-            ))
+    private func addExercise(_ exercise: Exercise) {
+        let unit = draft.gym?.defaultUnit ?? .kg
+        let order = (draft.entries.map { $0.order }.max() ?? 0) + 1
+        draft.entries.append(.init(
+            exerciseName: exercise.name,
+            order: order,
+            reps: 10,
+            weightValue: 20,
+            weightUnit: unit,
+            rpe: 7.5,
+            note: nil,
+            calibrationAlias: nil
+        ))
+    }
+
+    private func addSetForExercise(_ exerciseName: String) {
+        // Find an existing set for this exercise to copy defaults from
+        let existing = draft.entries.first(where: { $0.exerciseName == exerciseName })
+        let unit = existing?.weightUnit ?? draft.gym?.defaultUnit ?? .kg
+        let weight = existing?.weightValue ?? 20
+        let reps = existing?.reps ?? 10
+        let order = (draft.entries.map { $0.order }.max() ?? 0) + 1
+
+        draft.entries.append(.init(
+            exerciseName: exerciseName,
+            order: order,
+            reps: reps,
+            weightValue: weight,
+            weightUnit: unit,
+            rpe: existing?.rpe ?? 7.5,
+            note: nil,
+            calibrationAlias: existing?.calibrationAlias
+        ))
+    }
+
+    private var groupedExercises: [(name: String, indices: [Int])] {
+        var groups: [(name: String, indices: [Int])] = []
+        var seen: [String: Int] = [:] // exerciseName -> index in groups
+
+        for (index, entry) in draft.entries.enumerated() {
+            if let groupIndex = seen[entry.exerciseName] {
+                groups[groupIndex].indices.append(index)
+            } else {
+                seen[entry.exerciseName] = groups.count
+                groups.append((name: entry.exerciseName, indices: [index]))
+            }
         }
+        return groups
     }
 }
 
@@ -182,12 +250,13 @@ private extension LogWorkoutView {
 
 private struct WorkoutSetRow: View {
     @Binding var set: WorkoutSetDraft
+    var setNumber: Int
     var gym: Gym?
     var calibrations: [Calibration]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(set.exerciseName).font(.headline)
+            Text("Set \(setNumber)").font(.subheadline).foregroundStyle(.secondary)
 
             Stepper("Reps: \(set.reps)", value: $set.reps, in: 1...50)
 

@@ -123,7 +123,9 @@ struct RoutineBuilderView: View {
             .navigationTitle(editingRoutine == nil ? "New Routine" : "Edit Routine")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button { dismiss() } label: {
+                        Image(systemName: "xmark")
+                    }
                 }
             }
             .onAppear {
@@ -135,8 +137,8 @@ struct RoutineBuilderView: View {
                 }
             }
             .sheet(isPresented: $showExercisePicker) {
-                if let dayIdx = editingDayIndex {
-                    ExercisePickerView { exercise in
+                ExercisePickerView { exercise in
+                    if let dayIdx = editingDayIndex {
                         addExerciseToDay(exercise, dayIndex: dayIdx)
                     }
                 }

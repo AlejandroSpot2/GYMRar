@@ -22,9 +22,12 @@ struct ExercisePickerView: View {
         .shoulders: NeoColors.warning,
         .biceps: NeoColors.secondary,
         .triceps: NeoColors.accent,
-        .legs: NeoColors.primary,
+        .quads: NeoColors.primary,
+        .hamstrings: NeoColors.primary,
+        .glutes: NeoColors.primary,
+        .calves: NeoColors.primary,
         .core: NeoColors.success,
-        .fullBody: NeoColors.info
+        .other: NeoColors.info
     ]
 
     private var filteredExercises: [Exercise] {

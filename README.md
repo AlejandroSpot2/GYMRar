@@ -274,3 +274,6 @@ GYMRar uses a custom **Neobrutalism** design system featuring:
 
 Link to the repo!
 https://github.com/AlejandroSpot2/GYMRar
+
+Link de video de demostracion!
+https://www.loom.com/share/32686802abfd45f3b2f86ace3ac6b8f5 
